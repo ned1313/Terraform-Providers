@@ -64,9 +64,10 @@ resource "aws_route_table_association" "public" {
 }
 
 # Enable Flow Logs for the VPC
-resource "random_integer" "bucket_suffix" {
-  min = 10000
-  max = 99999
+resource "random_string" "bucket_suffix" {
+  length = 12
+  special = false
+  upper = false
 }
 
 module "vpc_flow_logs" {
@@ -74,7 +75,7 @@ module "vpc_flow_logs" {
 
   vpc_id        = aws_vpc.main.id
   naming_prefix = var.network_info.vpc_name
-  bucket_id_suffix = random_integer.bucket_suffix.result
+  bucket_id_suffix = random_string.bucket_suffix.result
 
   tags = {
     Environment = var.environment
