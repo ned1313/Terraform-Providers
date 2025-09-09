@@ -17,13 +17,3 @@ output "flow_log_arn" {
   description = "The ARN of the Flow Log"
   value       = aws_flow_log.vpc_flow_logs.arn
 }
-
-output "iam_role_name" {
-  description = "Name of the IAM role created for VPC flow logs"
-  value       = aws_iam_role.flow_log_role.name
-}
-
-output "iam_role_arn" {
-  description = "ARN of the IAM role created for VPC flow logs"
-  value       = aws_iam_role.flow_log_role.arn
-}

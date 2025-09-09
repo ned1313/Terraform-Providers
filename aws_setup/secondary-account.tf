@@ -1,4 +1,4 @@
-# Secondary Account Resources (globomantics-security)
+# Secondary Account Resources (security)
 
 # Trust policy for the cross-account role
 data "aws_iam_policy_document" "cross_account_role_trust_policy" {
@@ -18,170 +18,172 @@ data "aws_iam_policy_document" "cross_account_role_trust_policy" {
 }
 
 # Cross-account role that can be assumed from the primary account
-resource "aws_iam_role" "cross_account_vpc_peering_role" {
+resource "aws_iam_role" "cross_account_s3_role" {
   provider             = aws.secondary
   name                 = var.cross_account_role_name
   assume_role_policy   = data.aws_iam_policy_document.cross_account_role_trust_policy.json
-  description          = "Cross-account role for VPC peering operations"
+  description          = "Cross-account role for S3 bucket creation from primary account"
   max_session_duration = 3600 # 1 hour
 
   tags = merge(var.tags, {
     Name        = var.cross_account_role_name
     Account     = "secondary"
-    Description = "Cross-account role for VPC peering from primary account"
+    Description = "Cross-account role for S3 bucket creation from primary account"
   })
 }
 
-# Policy document for VPC peering permissions in the secondary account
-data "aws_iam_policy_document" "vpc_peering_permissions" {
-  # VPC peering connection permissions
+# Policy document for S3 bucket creation and management permissions in the secondary account
+data "aws_iam_policy_document" "s3_bucket_permissions" {
+  # Allow creating S3 buckets
   statement {
     effect = "Allow"
 
     actions = [
-      "ec2:CreateVpcPeeringConnection",
-      "ec2:AcceptVpcPeeringConnection",
-      "ec2:RejectVpcPeeringConnection",
-      "ec2:DeleteVpcPeeringConnection",
-      "ec2:ModifyVpcPeeringConnectionOptions"
+      "s3:CreateBucket"
     ]
 
-    resources = [
-      "arn:aws:ec2:*:${data.aws_caller_identity.secondary.account_id}:vpc/*",
-      "arn:aws:ec2:*:${data.aws_caller_identity.secondary.account_id}:vpc-peering-connection/*"
-    ]
+    resources = ["*"]
+
+    # Ensure buckets are created with specific tags to identify the creator
+    condition {
+      test     = "StringEquals"
+      variable = "s3:x-amz-bucket-tagging"
+      values   = ["CreatedBy=${aws_iam_role.cross_account_s3_role.arn}"]
+    }
   }
 
-  # Read-only permissions for VPCs and peering connections
+  # Allow listing all buckets (needed for AWS CLI and console operations)
   statement {
     effect = "Allow"
 
     actions = [
-      "ec2:DescribeVpcs",
-      "ec2:DescribeVpcPeeringConnections",
-      "ec2:DescribeRouteTables",
-      "ec2:DescribeNetworkAcls",
-      "ec2:DescribeSecurityGroups",
-      "ec2:DescribeSubnets",
-      "ec2:DescribeAvailabilityZones",
-      "ec2:DescribeRegions"
+      "s3:ListAllMyBuckets",
+      "s3:GetBucketLocation"
     ]
 
     resources = ["*"]
   }
 
-  # Route table modification permissions for peering
+  # Allow full bucket management operations, but only on buckets created by this role
   statement {
     effect = "Allow"
 
     actions = [
-      "ec2:CreateRoute",
-      "ec2:DeleteRoute",
-      "ec2:ReplaceRoute"
+      "s3:GetBucket*",
+      "s3:PutBucket*",
+      "s3:DeleteBucket*",
+      "s3:ListBucket*"
     ]
 
-    resources = [
-      "arn:aws:ec2:*:${data.aws_caller_identity.secondary.account_id}:route-table/*"
-    ]
+    resources = ["arn:aws:s3:::*"]
+
+    # Only allow operations on buckets tagged with this role as creator
+    condition {
+      test     = "StringEquals"
+      variable = "s3:ExistingBucketTag/CreatedBy"
+      values   = ["${aws_iam_role.cross_account_s3_role.arn}"]
+    }
   }
 
-  # Network ACL permissions (if needed for peering)
+  # Allow object management operations, but only in buckets created by this role
   statement {
     effect = "Allow"
 
     actions = [
-      "ec2:CreateNetworkAclEntry",
-      "ec2:DeleteNetworkAclEntry",
-      "ec2:ReplaceNetworkAclEntry"
+      "s3:GetObject*",
+      "s3:PutObject*",
+      "s3:DeleteObject*",
+      "s3:RestoreObject",
+      "s3:ListMultipartUploadParts",
+      "s3:AbortMultipartUpload"
     ]
 
-    resources = [
-      "arn:aws:ec2:*:${data.aws_caller_identity.secondary.account_id}:network-acl/*"
-    ]
+    resources = ["arn:aws:s3:::*/*"]
+
+    # Only allow operations on objects in buckets tagged with this role as creator
+    condition {
+      test     = "StringEquals"
+      variable = "s3:ExistingBucketTag/CreatedBy"
+      values   = ["${aws_iam_role.cross_account_s3_role.arn}"]
+    }
   }
 
-  # Tag management for created resources
+  # Allow bucket policy management, but only on buckets created by this role
   statement {
     effect = "Allow"
 
     actions = [
-      "ec2:CreateTags",
-      "ec2:DeleteTags"
+      "s3:GetBucketPolicy",
+      "s3:PutBucketPolicy",
+      "s3:DeleteBucketPolicy"
     ]
 
-    resources = [
-      "arn:aws:ec2:*:${data.aws_caller_identity.secondary.account_id}:vpc-peering-connection/*",
-      "arn:aws:ec2:*:${data.aws_caller_identity.secondary.account_id}:route-table/*"
-    ]
+    resources = ["arn:aws:s3:::*"]
 
     condition {
       test     = "StringEquals"
-      variable = "ec2:CreateAction"
-      values = [
-        "CreateVpcPeeringConnection",
-        "AcceptVpcPeeringConnection",
-        "CreateRoute"
-      ]
+      variable = "s3:ExistingBucketTag/CreatedBy"
+      values   = ["${aws_iam_role.cross_account_s3_role.arn}"]
+    }
+  }
+
+  # Allow lifecycle configuration management on buckets created by this role
+  statement {
+    effect = "Allow"
+
+    actions = [
+      "s3:GetLifecycleConfiguration",
+      "s3:PutLifecycleConfiguration"
+    ]
+
+    resources = ["arn:aws:s3:::*"]
+
+    condition {
+      test     = "StringEquals"
+      variable = "s3:ExistingBucketTag/CreatedBy"
+      values   = ["${aws_iam_role.cross_account_s3_role.arn}"]
+    }
+  }
+
+  # Allow tagging operations (needed for initial bucket creation and ongoing management)
+  statement {
+    effect = "Allow"
+
+    actions = [
+      "s3:GetBucketTagging",
+      "s3:PutBucketTagging",
+      "s3:TagResource",
+      "s3:UntagResource"
+    ]
+
+    resources = ["arn:aws:s3:::*"]
+
+    # Allow tagging on buckets created by this role OR during bucket creation
+    condition {
+      test     = "ForAnyValue:StringEquals"
+      variable = "s3:ExistingBucketTag/CreatedBy"
+      values   = ["${aws_iam_role.cross_account_s3_role.arn}", ""]
     }
   }
 }
 
-# IAM policy for VPC peering permissions
-resource "aws_iam_policy" "vpc_peering_permissions" {
+# IAM policy for S3 bucket permissions
+resource "aws_iam_policy" "s3_bucket_permissions" {
   provider    = aws.secondary
-  name        = "VPCPeeringCrossAccountPermissions"
-  description = "Permissions for cross-account VPC peering operations"
-  policy      = data.aws_iam_policy_document.vpc_peering_permissions.json
+  name        = "S3BucketCreationAndManagement"
+  description = "Permissions for S3 bucket creation and management by cross-account role"
+  policy      = data.aws_iam_policy_document.s3_bucket_permissions.json
 
   tags = merge(var.tags, {
-    Name        = "VPCPeeringCrossAccountPermissions"
+    Name        = "S3BucketCreationAndManagement"
     Account     = "secondary"
-    Description = "VPC peering permissions for cross-account access"
+    Description = "S3 bucket permissions for cross-account role"
   })
 }
 
-# Attach the VPC peering policy to the cross-account role
-resource "aws_iam_role_policy_attachment" "cross_account_vpc_peering_permissions" {
+# Attach the S3 bucket policy to the cross-account role
+resource "aws_iam_role_policy_attachment" "cross_account_s3_permissions" {
   provider   = aws.secondary
-  role       = aws_iam_role.cross_account_vpc_peering_role.name
-  policy_arn = aws_iam_policy.vpc_peering_permissions.arn
-}
-
-# Optional: CloudWatch Logs permissions for monitoring
-data "aws_iam_policy_document" "cloudwatch_logs_permissions" {
-  statement {
-    effect = "Allow"
-
-    actions = [
-      "logs:CreateLogGroup",
-      "logs:CreateLogStream",
-      "logs:PutLogEvents",
-      "logs:DescribeLogGroups",
-      "logs:DescribeLogStreams"
-    ]
-
-    resources = [
-      "arn:aws:logs:*:${data.aws_caller_identity.secondary.account_id}:log-group:/aws/vpc-peering/*"
-    ]
-  }
-}
-
-resource "aws_iam_policy" "cloudwatch_logs_permissions" {
-  provider    = aws.secondary
-  name        = "VPCPeeringCloudWatchLogs"
-  description = "CloudWatch Logs permissions for VPC peering operations"
-  policy      = data.aws_iam_policy_document.cloudwatch_logs_permissions.json
-
-  tags = merge(var.tags, {
-    Name        = "VPCPeeringCloudWatchLogs"
-    Account     = "secondary"
-    Description = "CloudWatch Logs permissions for VPC peering monitoring"
-  })
-}
-
-# Attach CloudWatch Logs policy to the cross-account role
-resource "aws_iam_role_policy_attachment" "cross_account_cloudwatch_logs" {
-  provider   = aws.secondary
-  role       = aws_iam_role.cross_account_vpc_peering_role.name
-  policy_arn = aws_iam_policy.cloudwatch_logs_permissions.arn
+  role       = aws_iam_role.cross_account_s3_role.name
+  policy_arn = aws_iam_policy.s3_bucket_permissions.arn
 }

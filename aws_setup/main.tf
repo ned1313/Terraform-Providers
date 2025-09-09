@@ -1,8 +1,8 @@
 # Configure the AWS Provider for both accounts
 provider "aws" {
   alias   = "primary"
-  profile = "globomantics-tacowagon"
-  region  = "us-east-1"
+  profile = var.primary_profile
+  region  = var.region
 
   default_tags {
     tags = var.tags
@@ -11,8 +11,8 @@ provider "aws" {
 
 provider "aws" {
   alias   = "secondary"
-  profile = "globomantics-security"
-  region  = "us-east-1"
+  profile = var.security_profile
+  region  = var.region
 
   default_tags {
     tags = var.tags

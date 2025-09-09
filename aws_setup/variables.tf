@@ -1,7 +1,25 @@
+variable "region" {
+  description = "AWS region for the primary account (where the VPC peering connection will be initiated)"
+  type        = string
+  default     = "us-west-2"
+}
+
+variable "primary_profile" {
+  description = "AWS CLI profile name for the primary account"
+  type        = string
+  default     = "sopes-saloon"
+}
+
+variable "security_profile" {
+  description = "AWS CLI profile name for the secondary account"
+  type        = string
+  default     = "security"
+}
+
 variable "cross_account_role_name" {
   description = "Name of the cross-account role to be assumed"
   type        = string
-  default     = "VPCPeeringCrossAccountRole"
+  default     = "S3BucketManagementRole"
 
   validation {
     condition     = can(regex("^[a-zA-Z][a-zA-Z0-9_+=,.@-]*$", var.cross_account_role_name))
@@ -12,7 +30,6 @@ variable "cross_account_role_name" {
 variable "primary_user_name" {
   description = "Name of the existing IAM user in the primary account who will assume the cross-account role"
   type        = string
-  default     = "vpc-peering-user"
 
   validation {
     condition     = can(regex("^[a-zA-Z][a-zA-Z0-9_+=,.@-]*$", var.primary_user_name))

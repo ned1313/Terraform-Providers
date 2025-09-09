@@ -78,3 +78,14 @@ variable "kms_key_id" {
   type        = string
   default     = null
 }
+
+variable "source_account_id" {
+  description = "The AWS account ID where the VPC resides (if different from the account deploying this module)"
+  type        = string
+  default     = null
+}
+
+variable "iam_role_arn" {
+  description = "The ARN of an existing IAM role to use for the bucket creation and maanagement. Will be used for tagging."
+  type        = string
+}

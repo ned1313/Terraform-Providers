@@ -1,17 +1,20 @@
-data "aws_caller_identity" "current" {}
+data "aws_caller_identity" "current" {
+    provider = aws.vpc_account
+}
 
 locals {
   bucket_name = "${var.naming_prefix}-vpc-flow-logs-${var.bucket_id_suffix}"
 
   common_tags = merge(
     {
-      Name      = "${var.naming_prefix}-vpc-flow-logs"
       Module    = "vpc_flow_logs"
       VpcId     = var.vpc_id
-      ManagedBy = "Terraform"
+      Createdby = var.iam_role_arn
     },
     var.tags
   )
+
+  source_account_id = var.source_account_id != null ? var.source_account_id : data.aws_caller_identity.current.account_id
 }
 
 # S3 bucket for storing VPC flow logs
@@ -124,7 +127,7 @@ data "aws_iam_policy_document" "vpc_flow_logs_bucket_policy" {
     condition {
       test     = "StringEquals"
       variable = "aws:SourceAccount"
-      values   = [data.aws_caller_identity.current.account_id]
+      values   = [local.source_account_id]
     }
   }
 
@@ -149,7 +152,7 @@ data "aws_iam_policy_document" "vpc_flow_logs_bucket_policy" {
     condition {
       test     = "StringEquals"
       variable = "aws:SourceAccount"
-      values   = [data.aws_caller_identity.current.account_id]
+      values   = [local.source_account_id]
     }
   }
 }
@@ -161,7 +164,8 @@ resource "aws_s3_bucket_policy" "vpc_flow_logs" {
 
 # VPC Flow Logs
 resource "aws_flow_log" "vpc_flow_logs" {
-  iam_role_arn             = aws_iam_role.flow_log_role.arn
+  provider = aws.vpc_account
+
   log_destination          = aws_s3_bucket.vpc_flow_logs.arn
   log_destination_type     = "s3"
   traffic_type             = var.traffic_type
@@ -173,78 +177,4 @@ resource "aws_flow_log" "vpc_flow_logs" {
     Name        = "${var.naming_prefix}-vpc-flow-logs"
     Description = "VPC Flow Logs for VPC ${var.vpc_id}"
   })
-}
-
-# IAM role for VPC Flow Logs (required even for S3 destination)
-data "aws_iam_policy_document" "flow_log_assume_role" {
-  statement {
-    effect = "Allow"
-
-    principals {
-      type        = "Service"
-      identifiers = ["vpc-flow-logs.amazonaws.com"]
-    }
-
-    actions = ["sts:AssumeRole"]
-  }
-}
-
-resource "aws_iam_role" "flow_log_role" {
-  name               = "${var.naming_prefix}-vpc-flow-logs-role"
-  assume_role_policy = data.aws_iam_policy_document.flow_log_assume_role.json
-
-  tags = merge(local.common_tags, {
-    Name        = "${var.naming_prefix}-vpc-flow-logs-role"
-    Description = "IAM role for VPC Flow Logs"
-  })
-}
-
-# IAM policy for the flow logs role
-data "aws_iam_policy_document" "flow_log_policy" {
-  statement {
-    effect = "Allow"
-
-    actions = [
-      "logs:CreateLogGroup",
-      "logs:CreateLogStream",
-      "logs:PutLogEvents",
-      "logs:DescribeLogGroups",
-      "logs:DescribeLogStreams"
-    ]
-
-    resources = ["*"]
-  }
-
-  statement {
-    effect = "Allow"
-
-    actions = [
-      "s3:GetBucketAcl",
-      "s3:ListBucket"
-    ]
-
-    resources = [aws_s3_bucket.vpc_flow_logs.arn]
-  }
-
-  statement {
-    effect = "Allow"
-
-    actions = [
-      "s3:PutObject"
-    ]
-
-    resources = ["${aws_s3_bucket.vpc_flow_logs.arn}/*"]
-
-    condition {
-      test     = "StringEquals"
-      variable = "s3:x-amz-acl"
-      values   = ["bucket-owner-full-control"]
-    }
-  }
-}
-
-resource "aws_iam_role_policy" "flow_log_policy" {
-  name   = "${var.naming_prefix}-vpc-flow-logs-policy"
-  role   = aws_iam_role.flow_log_role.id
-  policy = data.aws_iam_policy_document.flow_log_policy.json
 }

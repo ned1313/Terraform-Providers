@@ -1,66 +1,37 @@
+provider "aws" {
+  region = var.prod_region
+}
+
+provider "aws" {
+  alias = "dr"
+  region = var.dr_region
+}
+
+provider "aws" {
+  alias = "security"
+  region = var.prod_region
+  assume_role {
+    role_arn = var.security_role_arn
+  }
+}
+
 ## Networking Resources
-
-data "aws_availability_zones" "available" {
-  state = "available"
+module "prod_vpc" {
+  source      = "./modules/vpc"
+  environment = var.environment
+  region      = var.prod_region
+  network_info = var.prod_network_info
 }
 
-locals {
-  # map each subnet to an availability zone in a round-robin fashion
-  subnet_to_az = {
-    for subnet in keys(var.network_info.public_subnets) : 
-      subnet => element(data.aws_availability_zones.available.names, index(keys(var.network_info.public_subnets), subnet) % length(data.aws_availability_zones.available.names))
+module "dr_vpc" {
+  source      = "./modules/vpc"
+  environment = var.environment
+  region      = var.dr_region
+  network_info = var.dr_network_info
+
+  providers = {
+    aws = aws.dr
   }
-}
-
-resource "aws_vpc" "main" {
-  cidr_block           = var.network_info.vpc_cidr
-  enable_dns_hostnames = var.network_info.enable_dns_hostnames
-  enable_dns_support   = var.network_info.enable_dns_support
-  tags = {
-    Name        = var.network_info.vpc_name
-    Environment = var.environment
-  }
-}
-
-resource "aws_internet_gateway" "main" {
-  vpc_id = aws_vpc.main.id
-  tags = {
-    Name        = "${var.network_info.vpc_name}-igw"
-    Environment = var.environment
-  }
-}
-
-resource "aws_subnet" "public" {
-  for_each                = var.network_info.public_subnets
-  vpc_id                  = aws_vpc.main.id
-  cidr_block              = each.value
-  availability_zone       = local.subnet_to_az[each.key]
-  map_public_ip_on_launch = var.network_info.map_public_ip
-  tags = {
-    Name        = "${var.network_info.vpc_name}-public-${each.key}"
-    Environment = var.environment
-  }
-
-}
-
-resource "aws_route_table" "main" {
-  vpc_id = aws_vpc.main.id
-  tags = {
-    Name        = "${var.network_info.vpc_name}-public-rt"
-    Environment = var.environment
-  }
-}
-
-resource "aws_route" "default_route" {
-  route_table_id         = aws_route_table.main.id
-  destination_cidr_block = "0.0.0.0/0"
-  gateway_id             = aws_internet_gateway.main.id
-}
-
-resource "aws_route_table_association" "public" {
-  for_each       = aws_subnet.public
-  subnet_id      = each.value.id
-  route_table_id = aws_route_table.main.id
 }
 
 # Enable Flow Logs for the VPC
@@ -70,15 +41,15 @@ resource "random_string" "bucket_suffix" {
   upper = false
 }
 
-module "vpc_flow_logs" {
+module "s3_bucket" {
   source = "../vpc_flow_logs"
-
-  vpc_id        = aws_vpc.main.id
-  naming_prefix = var.network_info.vpc_name
+  vpc_id = module.prod_vpc.vpc_id
+  naming_prefix = "sopes-saloon"
+  iam_role_arn = var.security_role_arn
   bucket_id_suffix = random_string.bucket_suffix.result
 
-  tags = {
-    Environment = var.environment
-    Project     = "sopes-saloon"
+  providers = {
+    aws.vpc_account = aws
+    aws = aws.security
   }
 }
