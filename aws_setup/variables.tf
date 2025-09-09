@@ -42,3 +42,10 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "s3_prefix" {
+  description = "Prefix for S3 bucket names to be managed with this role."
+  type        = string
+  default     = "sopes-saloon"
+
+}

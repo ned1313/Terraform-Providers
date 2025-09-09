@@ -29,141 +29,31 @@ resource "aws_iam_role" "cross_account_s3_role" {
     Name        = var.cross_account_role_name
     Account     = "secondary"
     Description = "Cross-account role for S3 bucket creation from primary account"
+    S3Prefix    = var.s3_prefix
   })
 }
 
 # Policy document for S3 bucket creation and management permissions in the secondary account
 data "aws_iam_policy_document" "s3_bucket_permissions" {
-  # Allow creating S3 buckets
+  # Allow all bucket actions, but only on buckets with the specified prefix
   statement {
     effect = "Allow"
 
     actions = [
-      "s3:CreateBucket"
+      "s3:*"
     ]
 
-    resources = ["*"]
-
-    # Ensure buckets are created with specific tags to identify the creator
-    condition {
-      test     = "StringEquals"
-      variable = "s3:x-amz-bucket-tagging"
-      values   = ["CreatedBy=${aws_iam_role.cross_account_s3_role.arn}"]
-    }
+    resources = ["arn:aws:s3:::$${aws:PrincipalTag/S3Prefix}*"]
   }
-
-  # Allow listing all buckets (needed for AWS CLI and console operations)
+  # Allow listing all buckets (required for some S3 operations)
   statement {
     effect = "Allow"
 
     actions = [
-      "s3:ListAllMyBuckets",
-      "s3:GetBucketLocation"
-    ]
-
-    resources = ["*"]
-  }
-
-  # Allow full bucket management operations, but only on buckets created by this role
-  statement {
-    effect = "Allow"
-
-    actions = [
-      "s3:GetBucket*",
-      "s3:PutBucket*",
-      "s3:DeleteBucket*",
-      "s3:ListBucket*"
+      "s3:ListAllMyBuckets"
     ]
 
     resources = ["arn:aws:s3:::*"]
-
-    # Only allow operations on buckets tagged with this role as creator
-    condition {
-      test     = "StringEquals"
-      variable = "s3:ExistingBucketTag/CreatedBy"
-      values   = ["${aws_iam_role.cross_account_s3_role.arn}"]
-    }
-  }
-
-  # Allow object management operations, but only in buckets created by this role
-  statement {
-    effect = "Allow"
-
-    actions = [
-      "s3:GetObject*",
-      "s3:PutObject*",
-      "s3:DeleteObject*",
-      "s3:RestoreObject",
-      "s3:ListMultipartUploadParts",
-      "s3:AbortMultipartUpload"
-    ]
-
-    resources = ["arn:aws:s3:::*/*"]
-
-    # Only allow operations on objects in buckets tagged with this role as creator
-    condition {
-      test     = "StringEquals"
-      variable = "s3:ExistingBucketTag/CreatedBy"
-      values   = ["${aws_iam_role.cross_account_s3_role.arn}"]
-    }
-  }
-
-  # Allow bucket policy management, but only on buckets created by this role
-  statement {
-    effect = "Allow"
-
-    actions = [
-      "s3:GetBucketPolicy",
-      "s3:PutBucketPolicy",
-      "s3:DeleteBucketPolicy"
-    ]
-
-    resources = ["arn:aws:s3:::*"]
-
-    condition {
-      test     = "StringEquals"
-      variable = "s3:ExistingBucketTag/CreatedBy"
-      values   = ["${aws_iam_role.cross_account_s3_role.arn}"]
-    }
-  }
-
-  # Allow lifecycle configuration management on buckets created by this role
-  statement {
-    effect = "Allow"
-
-    actions = [
-      "s3:GetLifecycleConfiguration",
-      "s3:PutLifecycleConfiguration"
-    ]
-
-    resources = ["arn:aws:s3:::*"]
-
-    condition {
-      test     = "StringEquals"
-      variable = "s3:ExistingBucketTag/CreatedBy"
-      values   = ["${aws_iam_role.cross_account_s3_role.arn}"]
-    }
-  }
-
-  # Allow tagging operations (needed for initial bucket creation and ongoing management)
-  statement {
-    effect = "Allow"
-
-    actions = [
-      "s3:GetBucketTagging",
-      "s3:PutBucketTagging",
-      "s3:TagResource",
-      "s3:UntagResource"
-    ]
-
-    resources = ["arn:aws:s3:::*"]
-
-    # Allow tagging on buckets created by this role OR during bucket creation
-    condition {
-      test     = "ForAnyValue:StringEquals"
-      variable = "s3:ExistingBucketTag/CreatedBy"
-      values   = ["${aws_iam_role.cross_account_s3_role.arn}", ""]
-    }
   }
 }
 
@@ -171,7 +61,7 @@ data "aws_iam_policy_document" "s3_bucket_permissions" {
 resource "aws_iam_policy" "s3_bucket_permissions" {
   provider    = aws.secondary
   name        = "S3BucketCreationAndManagement"
-  description = "Permissions for S3 bucket creation and management by cross-account role"
+  description = "Permissions for S3 bucket creation and management for buckets with specified prefix ${var.s3_prefix}"
   policy      = data.aws_iam_policy_document.s3_bucket_permissions.json
 
   tags = merge(var.tags, {

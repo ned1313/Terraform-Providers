@@ -86,6 +86,6 @@ variable "source_account_id" {
 }
 
 variable "iam_role_arn" {
-  description = "The ARN of an existing IAM role to use for the bucket creation and maanagement. Will be used for tagging."
+  description = "The ARN of an existing IAM role to use for the bucket creation and management. Will be used for tagging."
   type        = string
 }
