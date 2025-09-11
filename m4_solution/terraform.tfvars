@@ -16,4 +16,4 @@ dr_network_info = {
   }
 }
 
-security_role_arn = "arn:aws:iam::366950153345:role/S3BucketManagementRole"
+security_role_arn = "UPDATE_WITH_VALUE"

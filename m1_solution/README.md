@@ -6,12 +6,12 @@ Before you begin making changes, you should make a copy of the `base_app` direct
 
 ```bash
 # Linux and Mac
-cp ./base_app ./nacho_brigade
+cp ./base_app ./sopes_saloon
 ```
 
 ```powershell
 # PowerShell
-Copy-Item -Recurse .\base_app\ .\nacho_brigade
+Copy-Item -Recurse .\base_app\ .\sopes_saloon
 ```
 
 This base configuration **will not deploy successfully** as-is. You will need to make changes to fix the configuration before it will work properly.
