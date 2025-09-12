@@ -8,6 +8,7 @@ data "aws_iam_user" "existing_s3_user" {
 
 # IAM policy for the user to assume the cross-account role
 data "aws_iam_policy_document" "assume_cross_account_role_policy" {
+  provider = aws.primary
   statement {
     effect = "Allow"
 

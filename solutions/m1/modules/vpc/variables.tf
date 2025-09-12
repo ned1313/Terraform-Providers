@@ -1,15 +1,10 @@
 variable "region" {
-  default = "us-west-2"
+  type = string
 }
 
 variable "environment" {
+    type = string
   default = "dev"
-}
-
-variable "instance_type" {
-  description = "The EC2 instance type to use for the web server"
-  type        = string
-  default     = "t3.micro"
 }
 
 variable "network_info" {

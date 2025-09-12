@@ -2,6 +2,7 @@
 
 # Trust policy for the cross-account role
 data "aws_iam_policy_document" "cross_account_role_trust_policy" {
+  provider = aws.secondary
   statement {
     effect = "Allow"
 
@@ -35,6 +36,7 @@ resource "aws_iam_role" "cross_account_s3_role" {
 
 # Policy document for S3 bucket creation and management permissions in the secondary account
 data "aws_iam_policy_document" "s3_bucket_permissions" {
+  provider = aws.secondary
   # Allow all bucket actions, but only on buckets with the specified prefix
   statement {
     effect = "Allow"

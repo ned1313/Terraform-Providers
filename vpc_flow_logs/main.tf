@@ -177,4 +177,6 @@ resource "aws_flow_log" "vpc_flow_logs" {
     Name        = "${var.naming_prefix}-vpc-flow-logs"
     Description = "VPC Flow Logs for VPC ${var.vpc_id}"
   })
+
+  depends_on = [ aws_s3_bucket_policy.vpc_flow_logs ]
 }

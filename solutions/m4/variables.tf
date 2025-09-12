@@ -1,4 +1,4 @@
-variable "prod_region" {
+variable "region" {
   default = "us-west-2"
 }
 
@@ -10,19 +10,13 @@ variable "environment" {
   default = "dev"
 }
 
-variable "prod_network_info" {
-  description = "A map of networking configuration values for the VPC and subnets"
-  type = object({
-    vpc_name             = string
-    vpc_cidr             = string
-    public_subnets       = map(string)
-    map_public_ip        = optional(bool, true)
-    enable_dns_hostnames = optional(bool, true)
-    enable_dns_support   = optional(bool, true)
-  })
+variable "instance_type" {
+  description = "The EC2 instance type to use for the web server"
+  type        = string
+  default     = "t3.micro"
 }
 
-variable "dr_network_info" {
+variable "network_info" {
   description = "A map of networking configuration values for the VPC and subnets"
   type = object({
     vpc_name             = string
@@ -32,11 +26,9 @@ variable "dr_network_info" {
     enable_dns_hostnames = optional(bool, true)
     enable_dns_support   = optional(bool, true)
   })
-  
 }
 
 variable "security_role_arn" {
-  description = "The ARN of the IAM role to assume for S3 creation in the security account"
+  description = "The ARN of the IAM role to assume in the secondary AWS account for S3 bucket creation"
   type        = string
-  
 }

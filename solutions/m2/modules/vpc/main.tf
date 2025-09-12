@@ -1,5 +1,3 @@
-## Networking Resources
-
 data "aws_availability_zones" "available" {
   state = "available"
 }
@@ -61,10 +59,4 @@ resource "aws_route_table_association" "public" {
   for_each       = aws_subnet.public
   subnet_id      = each.value.id
   route_table_id = aws_route_table.main.id
-}
-
-resource "random_string" "bucket_suffix" {
-  length  = 12
-  special = false
-  upper   = false
 }

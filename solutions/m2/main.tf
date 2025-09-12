@@ -48,3 +48,11 @@ resource "aws_instance" "web" {
     Name = "nacho-brigade-web-${var.environment}"
   }
 }
+
+# S3 Resources
+
+resource "random_string" "bucket_suffix" {
+  length  = 12
+  special = false
+  upper   = false
+}

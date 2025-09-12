@@ -1,5 +1,3 @@
-## Networking Resources
-
 data "aws_availability_zones" "available" {
   state = "available"
 }
