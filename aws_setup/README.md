@@ -83,14 +83,15 @@ This Terraform configuration includes:
 
 ### S3 Bucket Management
 
-The cross-account role includes sophisticated S3 permissions that allow:
+The cross-account role includes S3 permissions that allow:
+
 - Creating new S3 buckets
 - Managing bucket contents, policies, and lifecycle configurations
-- **Security**: Only buckets tagged with `CreatedBy=<role-arn>` can be managed by the role
+- Only buckets with a specific naming prefix can be managed by the role
 
 ### Security Features
 
-- **Creator-only Access**: S3 buckets must be tagged as created by the role to be manageable
+- **Creator-only Access**: S3 buckets must have a specific prefix to be managed by the role
 - **Cross-Account Isolation**: Role operates in secondary account but is assumed from primary
 - **Time-Limited Sessions**: Role sessions expire after 1 hour
 
